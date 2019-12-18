@@ -61,7 +61,6 @@
 #include <iostream>
 
 #include "ORBextractor.h"
-#include "CamModelGeneral.h"
 
 using namespace cv;
 using namespace std;
@@ -104,106 +103,51 @@ namespace F_test
 
 	const float factorPI = (float)(CV_PI / 180.f);
 	static void computeOrbDescriptor(const KeyPoint& kpt,
-		const Mat& img, const Mat& cube_img, const Point* pattern,
+		const Mat& img, const Point* pattern,
 		uchar* desc)
 	{
-		/// p = F2C(u) <- 3fps낮춤
-		float cubeX, cubeY;
-		CamModelGeneral::GetCamera()->FisheyeToCubemap((kpt.pt.x), (kpt.pt.y), cubeX, cubeY); //fish2cube(fish -> cube)
+		float angle = (float)kpt.angle * factorPI;
+		float a = (float)cos(angle), b = (float)sin(angle);
 
-		float fAngleRad = kpt.angle * (float)CV_PI / 180.f;
-		cv::Point2f orientF(cos(fAngleRad), sin(fAngleRad));
+		const uchar* center = &img.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));
+		const int step = (int)img.step;
 
-		float orientX, orientY;
-		CamModelGeneral::GetCamera()->FisheyeToCubemap(kpt.pt.x + orientF.x, kpt.pt.y + orientF.y, orientX, orientY);
-		cv::Point2f orientP(orientX - cubeX, orientX - cubeY);
-		orientP /= norm(orientP);
-		float a = orientP.x, b = orientP.y;
+#define GET_VALUE(idx)                                               \
+    center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
+           cvRound(pattern[idx].x * a - pattern[idx].y * b)]
 
 		for (int i = 0; i < 32; ++i, pattern += 16)
 		{
-			int idx, t0, t1, val = 0;
-			cv::Mat temp;
-			cv::Point2f temp_;
-
-			for (int j = 0; j < 8; j++)
-			{
-				idx = j * 2;
-				double fishX, fishY;
-				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(cubeX + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(cubeY + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
-				t0 = img.at<uchar>(fishY, fishX);
-
-				idx = j * 2 + 1;
-				CamModelGeneral::GetCamera()->CubemapToFisheye(fishX, fishY, static_cast<double>(cubeX + (pattern[idx].x * a - pattern[idx].y * b)), static_cast<double>(cubeY + (pattern[idx].x * b + pattern[idx].y * a)));//cube2fish(fish <- cube)
-				t1 = img.at<uchar>(fishY, fishX);
-
-				if (j == 0) {
-					val = t0 < t1;
-				}
-				else {
-					val |= (t0 < t1) << j;
-				}
-			}
+			int t0, t1, val;
+			t0 = GET_VALUE(0);
+			t1 = GET_VALUE(1);
+			val = t0 < t1;
+			t0 = GET_VALUE(2);
+			t1 = GET_VALUE(3);
+			val |= (t0 < t1) << 1;
+			t0 = GET_VALUE(4);
+			t1 = GET_VALUE(5);
+			val |= (t0 < t1) << 2;
+			t0 = GET_VALUE(6);
+			t1 = GET_VALUE(7);
+			val |= (t0 < t1) << 3;
+			t0 = GET_VALUE(8);
+			t1 = GET_VALUE(9);
+			val |= (t0 < t1) << 4;
+			t0 = GET_VALUE(10);
+			t1 = GET_VALUE(11);
+			val |= (t0 < t1) << 5;
+			t0 = GET_VALUE(12);
+			t1 = GET_VALUE(13);
+			val |= (t0 < t1) << 6;
+			t0 = GET_VALUE(14);
+			t1 = GET_VALUE(15);
+			val |= (t0 < t1) << 7;
 
 			desc[i] = (uchar)val;
 		}
 
-//		cv::Mat orientF_ = (cv::Mat_<double>(3, 1) << kpt.pt.x + orientF.x, kpt.pt.y + orientF.y, 1.0);
-//		///patch[p] <- 이 센터 구하는 과정을 없앨 수 있지 않을까?
-//		const uchar* center = &cube_img.at<uchar>(cvRound(cubeY), cvRound(cubeX));
-//		const int step = (int)img.step;
-//
-//		#define GET_VALUE(idx)                                               \
-//			center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
-//				cvRound(pattern[idx].x * a - pattern[idx].y * b)]
-//
-//
-//
-//
-//
-////		const uchar* center = &img.at<uchar>(cvRound(kpt.pt.y), cvRound(kpt.pt.x));
-////		const int step = (int)img.step;
-////
-////#define GET_VALUE(idx)                                               \
-////    center[cvRound(pattern[idx].x * b + pattern[idx].y * a) * step + \
-////           cvRound(pattern[idx].x * a - pattern[idx].y * b)]
-//
-//
-//
-//
-//		//한 col(8<-16개 패턴에서 비교)씩 32개의 row채워 8*32개의 bit만듬
-//		for (int i = 0; i < 32; ++i, pattern += 16)
-//		{
-//			int t0, t1, val;
-//			t0 = GET_VALUE(0);
-//			t1 = GET_VALUE(1);
-//			val = t0 < t1;
-//			t0 = GET_VALUE(2);
-//			t1 = GET_VALUE(3);
-//			val |= (t0 < t1) << 1;
-//			t0 = GET_VALUE(4);
-//			t1 = GET_VALUE(5);
-//			val |= (t0 < t1) << 2;
-//			t0 = GET_VALUE(6);
-//			t1 = GET_VALUE(7);
-//			val |= (t0 < t1) << 3;
-//			t0 = GET_VALUE(8);
-//			t1 = GET_VALUE(9);
-//			val |= (t0 < t1) << 4;
-//			t0 = GET_VALUE(10);
-//			t1 = GET_VALUE(11);
-//			val |= (t0 < t1) << 5;
-//			t0 = GET_VALUE(12);
-//			t1 = GET_VALUE(13);
-//			val |= (t0 < t1) << 6;
-//			t0 = GET_VALUE(14);
-//			t1 = GET_VALUE(15);
-//			val |= (t0 < t1) << 7;
-//
-//			desc[i] = (uchar)val;
-//		}
-//
-//#undef GET_VALUE
+#undef GET_VALUE
 	}
 
 	static int bit_pattern_31_[256 * 4] =
@@ -470,7 +414,6 @@ namespace F_test
 		int _iniThFAST, int _minThFAST) : nfeatures(_nfeatures), scaleFactor(_scaleFactor), nlevels(_nlevels),
 		iniThFAST(_iniThFAST), minThFAST(_minThFAST)
 	{
-		///scale sigma 20%씩 증가
 		mvScaleFactor.resize(nlevels);
 		mvLevelSigma2.resize(nlevels);
 		mvScaleFactor[0] = 1.0f;
@@ -493,7 +436,7 @@ namespace F_test
 
 		mnFeaturesPerLevel.resize(nlevels);
 		float factor = 1.0f / scaleFactor;
-		float nDesiredFeaturesPerScale = nfeatures * (1 - factor) / (1 - (float)pow((double)factor, (double)nlevels));//추출할 특징점 개수 scale에 따라 줄어듬
+		float nDesiredFeaturesPerScale = nfeatures * (1 - factor) / (1 - (float)pow((double)factor, (double)nlevels));
 
 		int sumFeatures = 0;
 		for (int level = 0; level < nlevels - 1; level++)
@@ -909,7 +852,6 @@ namespace F_test
 			computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 	}
 
-	// mask!!!
 	void ORBextractor::ComputeKeyPointsOctTree(vector<vector<KeyPoint>>& allKeypoints, std::vector<cv::Mat> masks)
 	{
 		allKeypoints.resize(nlevels);
@@ -1176,20 +1118,16 @@ namespace F_test
 			computeOrientation(mvImagePyramid[level], allKeypoints[level], umax);
 	}
 
-	static void computeDescriptors(const Mat& image, const Mat& cube_image, vector<KeyPoint>& keypoints, Mat& descriptors,
+	static void computeDescriptors(const Mat& image, vector<KeyPoint>& keypoints, Mat& descriptors,
 		const vector<Point>& pattern)
 	{
 		descriptors = Mat::zeros((int)keypoints.size(), 32, CV_8UC1);
 
 		for (size_t i = 0; i < keypoints.size(); i++)
-		{
-			///keypoint culling	
-			
-			computeOrbDescriptor(keypoints[i], image, cube_image, &pattern[0], descriptors.ptr((int)i));
-		}
+			computeOrbDescriptor(keypoints[i], image, &pattern[0], descriptors.ptr((int)i));
 	}
 
-	void ORBextractor::operator()(InputArray _image, InputArray _mask, InputArray _cube_mask, vector<KeyPoint>& _keypoints,
+	void ORBextractor::operator()(InputArray _image, InputArray _mask, vector<KeyPoint>& _keypoints,
 		OutputArray _descriptors)
 	{
 		if (_image.empty())
@@ -1201,12 +1139,8 @@ namespace F_test
 		Mat mask = _mask.getMat();
 		assert(mask.type() == CV_8UC1);
 
-		int width = CamModelGeneral::GetCamera()->GetCubeFaceWidth(), height = CamModelGeneral::GetCamera()->GetCubeFaceHeight();
-		cv::Mat cubemapImg(height * 3, width * 3, CV_8U, cv::Scalar::all(0));
-
 		std::vector<cv::Mat> masks;
 		vector<vector<KeyPoint>> allKeypoints;
-
 
 		if (mask.empty())
 		{
@@ -1218,7 +1152,7 @@ namespace F_test
 			ComputePyramid(image, mask, masks);
 			ComputeKeyPointsOctTree(allKeypoints, masks);
 		}
-		//////////////////////////////////////////////////////////////////
+
 		Mat descriptors;
 
 		int nkeypoints = 0;
@@ -1244,26 +1178,13 @@ namespace F_test
 			if (nkeypointsLevel == 0)
 				continue;
 
-
-
-
-
-
-
-
-
-
-
-
-
 			// preprocess the resized image
 			Mat workingMat = mvImagePyramid[level].clone();
 			GaussianBlur(workingMat, workingMat, Size(7, 7), 2, 2, BORDER_REFLECT_101);
 
-
 			// Compute the descriptors
 			Mat desc = descriptors.rowRange(offset, offset + nkeypointsLevel);
-			computeDescriptors(workingMat, cubemapImg, keypoints, desc, pattern);
+			computeDescriptors(workingMat, keypoints, desc, pattern);
 
 			offset += nkeypointsLevel;
 

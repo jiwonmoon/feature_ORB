@@ -57,7 +57,8 @@ namespace F_test
 
 		// Compute the ORB features and descriptors on an image.
 		// ORB are dispersed on the image using an octree.
-		void operator()(cv::InputArray image, cv::InputArray mask, cv::InputArray cube_mask,
+		// Mask is ignored in the current implementation.
+		void operator()(cv::InputArray image, cv::InputArray mask,
 			std::vector<cv::KeyPoint>& keypoints,
 			cv::OutputArray descriptors);
 
@@ -92,7 +93,6 @@ namespace F_test
 		}
 
 		std::vector<cv::Mat> mvImagePyramid;
-		std::vector<cv::Mat> mvMaskPyramid;
 
 	protected:
 		void ComputePyramid(cv::Mat image);
@@ -124,6 +124,7 @@ namespace F_test
 		std::vector<float> mvLevelSigma2;
 		std::vector<float> mvInvLevelSigma2;
 	};
+
 
 } // namespace ORB_SLAM2
 

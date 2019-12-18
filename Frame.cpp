@@ -135,7 +135,7 @@ namespace F_test
 		clock_t start_detect = clock();
 
 		// ORB extraction
-		(*mpORBextractor)(img, mask, cube_mask, mvKeys, mDescriptors);
+		(*mpORBextractor)(img, mask, mvKeys, mDescriptors);
 
 		double duration_detect = (double)(clock() - start_detect);
 
